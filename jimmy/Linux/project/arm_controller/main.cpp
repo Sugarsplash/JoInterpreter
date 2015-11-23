@@ -81,58 +81,133 @@ int main(int argc, char *argv[])
         }
     }
 
-    if(MotionManager::GetInstance()->Initialize(&cm730) == false)
+    // if(MotionManager::GetInstance()->Initialize(&cm730) == false)
+    // {
+    //     printf("Initializing Motion Manager failed!\n");
+    //     exit(0);
+    // }
+    //
+    // MotionManager::GetInstance()->LoadINISettings(ini);
+    // MotionManager::GetInstance()->SetEnable(false);
+    // MotionManager::GetInstance()->AddModule((MotionModule*)Action::GetInstance());
+    // linuxMotionTimer.Initialize(MotionManager::GetInstance());
+    // linuxMotionTimer.Stop();
+
+    int r_shoulder_roll, r_shoulder_pitch;
+    int choice;
+    int done = 0;
+
+    do
     {
-        printf("Initializing Motion Manager failed!\n");
-        exit(0);
-    }
+        cout << "\n\n1. Set Angles\n";
+        cout << "2. Read Angles\n";
+        cout << "0. Exit\n\n";
+        cout << "Choice: ";
+        cin >> choice;
 
-    MotionManager::GetInstance()->LoadINISettings(ini);
-    MotionManager::GetInstance()->SetEnable(false);
-    MotionManager::GetInstance()->AddModule((MotionModule*)Action::GetInstance());
-    linuxMotionTimer.Initialize(MotionManager::GetInstance());
-    linuxMotionTimer.Stop();
+        switch (choice)
+        {
+            case 1:
+                cout << "r_shoulder_roll:  ";
+                cin >> r_shoulder_roll;
 
-    ifstream joints_file;
-    int angles[4];
-    joints_file.open(KINECT_FILE_PATH);
+                if (r_shoulder_roll > 150 | r_shoulder_roll < -150)
+                {
+                    cout << "r_shoulder_roll out of range:  " << r_shoulder_roll << endl;
+                    exit(0);
+                }
 
-    if (!joints_file.is_open())
-    {
-        printf("Could not open Kinect joints file.\n");
-        exit(0);
-    }
+                cout << "r_shoulder_pitch:  ";
+                cin >> r_shoulder_pitch;
 
-    int i = 0;
-    char angle_buf[4];  // Angles should never be longer than 3 characters (min: 0, max: 300) + '\0'
+                if (r_shoulder_pitch > 150 | r_shoulder_pitch < -150)
+                {
+                    cout << "r_shoulder_pitch out of range:  " << r_shoulder_pitch << endl;
+                    exit(0);
+                }
 
-    while (joints_file.good())
-    {
-        joints_file.getline(angle_buf, 4, ',');
-        angles[i] = atoi(angle_buf);
-        ++i;
-    }
+                MotionStatus::m_CurrentJoints.SetAngle(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_ROLL, r_shoulder_roll);
+                MotionStatus::m_CurrentJoints.SetAngle(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_PITCH, r_shoulder_pitch);
 
-    joints_file.close();
+                break;
+            case 2:
+                cout << "\nr_shoulder_roll: " << MotionStatus::m_CurrentJoints.GetAngle(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_ROLL);
+                cout << "\nr_shoulder_pitch: " << MotionStatus::m_CurrentJoints.GetAngle(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_PITCH);
+                break;
+            case 0:
+                done = 1;
+                break;
+            default:
+                cout << "\n\nIncorrect choice\n\n";
+                break;
+        }
+    } while (!done);
 
-    // Joint data had 150 added to it before being sent by Kinect so that no
-    // negative numbers needed to be parsed. Must return back to the actual angle
-    // scale of -150 to 150
-    int r_shoulder_pitch = angles[0] - 150;
-    int r_shoulder_roll = angles[1] - 150;
-    int l_shoulder_pitch = angles[2] - 150;
-    int l_shoulder_roll = angles[3] - 150;
 
-    cout << "r_shoulder_pitch: " << r_shoulder_pitch << endl;
-    cout << "r_shoulder_roll: " << r_shoulder_roll << endl;
-    cout << "l_shoulder_pitch: " << l_shoulder_pitch << endl;
-    cout << "l_shoulder_pitch: " << l_shoulder_roll << endl;
-
-    MotionStatus::m_CurrentJoints.SetEnableUpperBodyWithoutHead(true, true);
-    MotionStatus::m_CurrentJoints.SetValue(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_PITCH, r_shoulder_pitch);
-    MotionStatus::m_CurrentJoints.SetValue(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_ROLL, r_shoulder_roll);
-    MotionStatus::m_CurrentJoints.SetValue(MotionStatus::m_CurrentJoints.ID_L_SHOULDER_PITCH, l_shoulder_pitch);
-    MotionStatus::m_CurrentJoints.SetValue(MotionStatus::m_CurrentJoints.ID_L_SHOULDER_ROLL, l_shoulder_roll);
+    // ifstream joints_file;
+    // int angles[4];
+    // joints_file.open(KINECT_FILE_PATH);
+    //
+    // if (!joints_file.is_open())
+    // {
+    //     printf("Could not open Kinect joints file.\n");
+    //     exit(0);
+    // }
+    //
+    // int i = 0;
+    // char angle_buf[4];  // Angles should never be longer than 3 characters (min: 0, max: 300) + '\0'
+    //
+    // while (joints_file.good())
+    // {
+    //     joints_file.getline(angle_buf, 4, ',');
+    //     angles[i] = atoi(angle_buf);
+    //     ++i;
+    // }
+    //
+    // joints_file.close();
+    //
+    // // Joint data had 150 added to it before being sent by Kinect so that no
+    // // negative numbers needed to be parsed. Must return back to the actual angle
+    // // scale of -150 to 150
+    // int r_shoulder_pitch = angles[0] - 150;
+    // if (r_shoulder_pitch > 150 | r_shoulder_pitch < -150)
+    // {
+    //     cout << "r_shoulder_pitch out of range:  " << r_shoulder_pitch << endl;
+    //     exit(0);
+    // }
+    //
+    // int r_shoulder_roll = angles[1] - 150;
+    // if (r_shoulder_roll > 150 | r_shoulder_roll < -150)
+    // {
+    //     cout << "r_shoulder_roll out of range:  " << r_shoulder_roll << endl;
+    //     exit(0);
+    // }
+    //
+    // int l_shoulder_pitch = angles[2] - 150;
+    // if (l_shoulder_pitch > 150 | l_shoulder_pitch < -150)
+    // {
+    //     cout << "l_shoulder_pitch out of range:  " << l_shoulder_pitch << endl;
+    //     exit(0);
+    // }
+    //
+    // int l_shoulder_roll = angles[3] - 150;
+    // if (l_shoulder_roll > 150 | l_shoulder_roll < -150)
+    // {
+    //     cout << "l_shoulder_roll out of range:  " << l_shoulder_roll << endl;
+    //     exit(0);
+    // }
+    //
+    //
+    // cout << "r_shoulder_pitch: " << r_shoulder_pitch << endl;
+    // cout << "r_shoulder_roll: " << r_shoulder_roll << endl;
+    // cout << "l_shoulder_pitch: " << l_shoulder_pitch << endl;
+    // cout << "l_shoulder_pitch: " << l_shoulder_roll << endl;
+    //
+    // MotionStatus::m_CurrentJoints.SetEnableUpperBodyWithoutHead(true, true);
+    // MotionStatus::m_CurrentJoints.SetAngle(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_PITCH, r_shoulder_pitch);
+    // MotionStatus::m_CurrentJoints.SetAngle(MotionStatus::m_CurrentJoints.ID_R_SHOULDER_ROLL, r_shoulder_roll);
+    // MotionStatus::m_CurrentJoints.SetAngle(MotionStatus::m_CurrentJoints.ID_L_SHOULDER_PITCH, l_shoulder_pitch);
+    // MotionStatus::m_CurrentJoints.SetAngle(MotionStatus::m_CurrentJoints.ID_L_SHOULDER_ROLL, l_shoulder_roll);
 
     exit(0);
 }
