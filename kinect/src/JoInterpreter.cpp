@@ -24,12 +24,14 @@
 #include <XnCppWrapper.h>
 #include <iostream>
 #include <fstream>
+#include <math.h>       /* atan */
 
 //---------------------------------------------------------------------------
 // Defines
 //---------------------------------------------------------------------------
 #define SAMPLE_XML_PATH "../Data/SamplesConfig.xml"
 #define SAMPLE_XML_PATH_LOCAL "SamplesConfig.xml"
+#define PI 3.14159265
 
 //---------------------------------------------------------------------------
 // Globals
@@ -41,7 +43,7 @@ xn::UserGenerator g_UserGenerator;
 XnBool g_bNeedPose = FALSE;
 XnChar g_strPose[20] = "";
 
-#define MAX_NUM_USERS 15
+#define MAX_NUM_USERS 1
 //---------------------------------------------------------------------------
 // Code
 //---------------------------------------------------------------------------
@@ -131,6 +133,27 @@ void XN_CALLBACK_TYPE UserCalibration_CalibrationComplete(xn::SkeletonCapability
     return nRetVal;						    \
 }
 
+/*Function to convert delta values to thetas 
+and offset the value 
+and round to the nearest degree
+*/
+int delta_to_theta(float delta_top, float delta_x)
+{
+    double theta = 0;
+    int degree = 0;
+
+    theta = atan (delta_top / delta_x) * 180 / PI;
+
+    degree = (int)theta;
+
+    if(degree < 0)
+    {
+        degree = degree + 150;
+    }
+
+    return degree;
+}
+
 int main()
 {
     XnStatus nRetVal = XN_STATUS_OK;
@@ -199,10 +222,23 @@ int main()
 
     XnUserID aUsers[MAX_NUM_USERS];
     XnUInt16 nUsers;
+
+    /*Joint transformation, deltas, and thetas needed for Jimmy
+    */
     XnSkeletonJointTransformation rightElbow;
     XnSkeletonJointTransformation rightShoulder;
     XnSkeletonJointTransformation leftElbow;
     XnSkeletonJointTransformation leftShoulder;
+    
+    float delta_x = 0;
+    float delta_y = 0;
+    float delta_z = 0;
+
+    int theta_p_l = 0;
+    int theta_r_l = 0;
+    int theta_p_r = 0;
+    int theta_r_r = 0;
+
 
     printf("Starting to run\n");
     if(g_bNeedPose)
@@ -224,6 +260,8 @@ int main()
             if(g_UserGenerator.GetSkeletonCap().IsTracking(aUsers[i])==FALSE)
                 continue;
 
+            /* Prompt user to strike a pose for the kinect
+            */
             printf("STRIKE A POSE!\n");
 
             sleep(1);
@@ -238,10 +276,31 @@ int main()
 
             printf("ONE!\n");
 
+            /*Capture joint data in order to generate vector as two sets of (x,y,z) coordinates.
+            */
             g_UserGenerator.GetSkeletonCap().GetSkeletonJoint(aUsers[i],XN_SKEL_LEFT_ELBOW,leftElbow);
             g_UserGenerator.GetSkeletonCap().GetSkeletonJoint(aUsers[i],XN_SKEL_LEFT_SHOULDER,leftShoulder);            
             g_UserGenerator.GetSkeletonCap().GetSkeletonJoint(aUsers[i],XN_SKEL_RIGHT_ELBOW,rightElbow);
             g_UserGenerator.GetSkeletonCap().GetSkeletonJoint(aUsers[i],XN_SKEL_RIGHT_SHOULDER,rightShoulder);
+
+            /* Find thetas for left shoulder servos
+            */
+            delta_x = leftElbow.position.position.X - leftShoulder.position.position.X;
+            delta_y = leftElbow.position.position.Y - leftShoulder.position.position.Y;
+            delta_z = leftElbow.position.position.Z - leftShoulder.position.position.Z;
+
+            theta_p_l = delta_to_theta(delta_y, delta_x);
+            theta_r_l = delta_to_theta(delta_z, delta_x);
+
+            /* Find thetas for right shoulder servos
+            */
+            delta_x = rightElbow.position.position.X - rightShoulder.position.position.X;
+            delta_y = rightElbow.position.position.Y - rightShoulder.position.position.Y;
+            delta_z = rightElbow.position.position.Z - rightShoulder.position.position.Z;
+
+            theta_p_r = delta_to_theta(delta_y, delta_x);
+            theta_r_r = delta_to_theta(delta_z, delta_x);
+
                 printf("user %d: left elbow at (%6.2f,%6.2f,%6.2f)\n",aUsers[i],
                                                                 leftElbow.position.position.X,
                                                                 leftElbow.position.position.Y,
@@ -259,27 +318,23 @@ int main()
                                                                 rightShoulder.position.position.Y,
                                                                 rightShoulder.position.position.Z);
 
+                printf("Left Pitch angle %d, roll angle %d.\n", theta_p_l, theta_r_l);
+
+                printf("Right Pitch angle %d, roll angle %d.\n", theta_p_r, theta_r_r);
+
+                /*Write to file for input to Jimmy
+                */
                 std::ofstream jointPositionFile;
                 jointPositionFile.open("jointPosition.txt", std::ios::trunc);
                 
                 if(jointPositionFile.is_open())
                 {
-                    jointPositionFile << leftShoulder.position.position.X << "\n";
-                    jointPositionFile << leftShoulder.position.position.Y << "\n";
-                    jointPositionFile << leftShoulder.position.position.Z << "\n";
 
-                    jointPositionFile << leftElbow.position.position.X << "\n";
-                    jointPositionFile << leftElbow.position.position.Y << "\n";
-                    jointPositionFile << leftElbow.position.position.Z << "\n";
-
-                    jointPositionFile << rightShoulder.position.position.X << "\n";
-                    jointPositionFile << rightShoulder.position.position.Y << "\n";
-                    jointPositionFile << rightShoulder.position.position.Z << "\n";
-
-                    jointPositionFile << rightElbow.position.position.X << "\n";
-                    jointPositionFile << rightElbow.position.position.Y << "\n";
-                    jointPositionFile << rightElbow.position.position.Z << "\n";
-
+                    jointPositionFile << theta_p_r << ","  
+                                      << theta_r_r << "," 
+                                      << theta_p_l << "," 
+                                      << theta_r_l << "\n";
+                  
                     looper = 0;
 
                 }
