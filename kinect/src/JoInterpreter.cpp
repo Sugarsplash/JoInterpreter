@@ -137,22 +137,41 @@ void XN_CALLBACK_TYPE UserCalibration_CalibrationComplete(xn::SkeletonCapability
 and offset the value 
 and round to the nearest degree
 */
-int delta_to_theta(float delta_top, float delta_x)
+float delta_to_theta(float delta_top, float delta_x)
 {
     double theta = 0;
-    int degree = 0;
+    float degree = 0;
+    float vector = 0;
 
-    theta = atan (delta_top / delta_x) * 180 / PI;
+    vector = (delta_x / delta_top);
 
-    degree = (int)theta;
+    theta = atan (vector) * 180 / PI;
 
-    if(degree < 0)
-    {
-        degree = degree + 150;
-    }
+    degree = (float)theta;
+
+    printf("from delta_to_theta(), vector: %f\tdegree: %f\ttheta: %f\n", vector, degree, theta);
 
     return degree;
 }
+
+int theta_to_servoVal(float theta)
+{
+    float value = (3.413*theta +348);
+
+    int servoVal = (int)value;
+
+    if(servoVal > 700)
+    {
+        servoVal = 700;
+    }
+    else if(servoVal < 370)
+    {
+        servoVal = 370;
+    }
+
+    return servoVal;
+}
+
 
 int main()
 {
@@ -232,12 +251,12 @@ int main()
     
     float delta_x = 0;
     float delta_y = 0;
-    float delta_z = 0;
 
-    int theta_p_l = 0;
-    int theta_r_l = 0;
-    int theta_p_r = 0;
-    int theta_r_r = 0;
+    float roll_theta_left = 0;
+    float roll_theta_right = 0;
+
+    int roll_servoVal_right = 512;
+    int roll_servoVal_left = 512;
 
 
     printf("Starting to run\n");
@@ -285,23 +304,28 @@ int main()
 
             /* Find thetas for left shoulder servos
             */
-            delta_x = leftElbow.position.position.X - leftShoulder.position.position.X;
-            delta_y = leftElbow.position.position.Y - leftShoulder.position.position.Y;
-            delta_z = leftElbow.position.position.Z - leftShoulder.position.position.Z;
+            delta_x = abs(leftElbow.position.position.X - leftShoulder.position.position.X);
+            delta_y = abs(leftElbow.position.position.Y - leftShoulder.position.position.Y);
 
-            theta_p_l = delta_to_theta(delta_y, delta_x);
-            theta_r_l = delta_to_theta(delta_z, delta_x);
+            printf("Left Delta X: %f\n", delta_x);
+            printf("Left Delta Y: %f\n", delta_y);
+
+            //roll_theta_left = ??????          
 
             /* Find thetas for right shoulder servos
             */
-            delta_x = rightElbow.position.position.X - rightShoulder.position.position.X;
-            delta_y = rightElbow.position.position.Y - rightShoulder.position.position.Y;
-            delta_z = rightElbow.position.position.Z - rightShoulder.position.position.Z;
+            delta_x = abs(rightElbow.position.position.X - rightShoulder.position.position.X);
+            delta_y = abs(rightElbow.position.position.Y - rightShoulder.position.position.Y);
 
-            theta_p_r = delta_to_theta(delta_y, delta_x);
-            theta_r_r = delta_to_theta(delta_z, delta_x);
+            printf("Right Delta X: %f\n", delta_x);
+            printf("Right Delta Y: %f\n", delta_y);
 
-                printf("user %d: left elbow at (%6.2f,%6.2f,%6.2f)\n",aUsers[i],
+            roll_theta_right = (90 - delta_to_theta(delta_y, delta_x));
+
+            roll_servoVal_right = theta_to_servoVal(roll_theta_right);
+           
+
+                printf("user %d: left Elbow at (%6.2f,%6.2f,%6.2f)\n",aUsers[i],
                                                                 leftElbow.position.position.X,
                                                                 leftElbow.position.position.Y,
                                                                 leftElbow.position.position.Z);
@@ -309,7 +333,7 @@ int main()
                                                                 leftShoulder.position.position.X,
                                                                 leftShoulder.position.position.Y,
                                                                 leftShoulder.position.position.Z);
-                printf("user %d: right elbow at (%6.2f,%6.2f,%6.2f)\n",aUsers[i],
+                printf("user %d: right Elbow at (%6.2f,%6.2f,%6.2f)\n",aUsers[i],
                                                                 rightElbow.position.position.X,
                                                                 rightElbow.position.position.Y,
                                                                 rightElbow.position.position.Z);
@@ -318,9 +342,7 @@ int main()
                                                                 rightShoulder.position.position.Y,
                                                                 rightShoulder.position.position.Z);
 
-                printf("Left Pitch angle %d, roll angle %d.\n", theta_p_l, theta_r_l);
-
-                printf("Right Pitch angle %d, roll angle %d.\n", theta_p_r, theta_r_r);
+                printf("Right Roll servoVal %d, Roll angle %d.\n", roll_servoVal_right, roll_theta_right);
 
                 /*Write to file for input to Jimmy
                 */
@@ -330,12 +352,8 @@ int main()
                 if(jointPositionFile.is_open())
                 {
 
-                    jointPositionFile << theta_p_r << ","  
-                                      << theta_r_r << "," 
-                                      << theta_p_l << "," 
-                                      << theta_r_l << "\n";
+                    jointPositionFile << roll_servoVal_right << ",";
                   
-                    looper = 0;
 
                 }
                 
